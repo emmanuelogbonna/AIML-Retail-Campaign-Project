@@ -1,3 +1,27 @@
+# Data files - don't upload datasets
+*.csv
+*.xlsx
+*.xls
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Python
+__pycache__/
+*.py[cod]
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
