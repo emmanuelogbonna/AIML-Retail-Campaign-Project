@@ -1,0 +1,59 @@
+
+FINAL RANDOM FOREST EVALUATION
+==============================
+
+Model
+-----
+Random Forest Classifier
+
+Number of trees
+---------------
+100
+
+Dataset
+-------
+Master Campaign Response Data.csv
+
+Total usable records
+--------------------
+3831
+
+Training records
+----------------
+3064
+
+Testing records
+---------------
+767
+
+Features
+--------
+total_sales, unique_products, number_of_invoices, nps, n_comp, n_communications, loyalty
+
+Performance Metrics
+-------------------
+
+Accuracy:  0.7288
+Precision: 0.7395
+Recall:    0.5113
+F1 Score:  0.6046
+ROC AUC:   0.7840
+
+Confusion Matrix
+----------------
+
+[[400  56]
+ [152 159]]
+
+Classification Report
+---------------------
+
+              precision    recall  f1-score   support
+
+           0       0.72      0.88      0.79       456
+           1       0.74      0.51      0.60       311
+
+    accuracy                           0.73       767
+   macro avg       0.73      0.69      0.70       767
+weighted avg       0.73      0.73      0.72       767
+
