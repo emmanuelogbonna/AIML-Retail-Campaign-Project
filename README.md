@@ -585,6 +585,17 @@ scikit-learn: 1.6.1
 Using the specified dependency versions and project structure helps ensure that the saved model can be loaded consistently.
 
 ---
+### Possible Model Enhancements
+
+As a further enhancement, the model could incorporate additional **non-sensitive demographic and customer-preference data** that customers may be comfortable providing voluntarily. Examples could include broad **age ranges**, **nationality**, preferred communication channel, and general customer preferences.
+
+For example, customers could be grouped into broad age ranges such as **0–9, 10–19, 20–29, 30–39, 40–49, 50–59, 60–69, 70–79, 80–89 and 90–99**. This could allow the model to identify whether campaign response patterns differ across age groups.
+
+Other voluntarily provided information, such as **nationality or preferred communication method**, could also be evaluated as potential predictive features. Combining these attributes with existing behavioural features such as **loyalty, NPS, total sales, number of invoices and communication history** could provide a more detailed understanding of customer response patterns.
+
+The enhanced model could then investigate which customer segments are more likely to respond to different campaign types. This could support more targeted campaign research and potentially improve campaign effectiveness.
+
+Any additional customer information should be collected transparently, with appropriate **consent, data-protection controls, anonymisation where appropriate, and consideration of potential bias and fairness**.
 
 # Author
 
