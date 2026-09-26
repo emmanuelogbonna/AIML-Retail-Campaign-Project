@@ -1,434 +1,568 @@
-import os
+from pathlib import Path
 import base64
 import io
+
 import joblib
 import pandas as pd
-
-from dash import Dash, html, dcc, Input, Output, State
 import plotly.graph_objects as go
 
+from dash import Dash, dcc, html, Input, Output, State, dash_table
+from dash.exceptions import PreventUpdate
 
-# ============================================================
-# Configuration
-# ============================================================
 
-MODEL_PATH = r"C:\Users\EmmanuelOgbonna\OneDrive - Deighton Associates Ltd\Desktop\AI and ML Data Science Institute\models\random_forest_model.pkl"
+BASE_DIR = Path(__file__).resolve().parent.parent
+MODEL_PATH = BASE_DIR / "models" / "random_forest_model.pkl"
+
 
 FEATURES = [
+    "n_comp",
+    "loyalty",
+    "nps",
+    "n_communications",
     "total_sales",
     "unique_products",
     "number_of_invoices",
-    "nps",
-    "n_comp",
-    "n_communications",
-    "loyalty"
+    "purchase_days",
+    "average_invoice_value",
+    "average_quantity_per_invoice",
+    "average_product_price",
+    "customer_activity_days"
 ]
 
 
-# ============================================================
-# Load model
-# ============================================================
+print("Loading Random Forest model...")
 
-if not os.path.exists(MODEL_PATH):
-    raise FileNotFoundError(
-        f"Model file not found:\n{MODEL_PATH}"
+try:
+    model = joblib.load(MODEL_PATH)
+
+    print("Random Forest model loaded successfully.")
+    print(f"Model path: {MODEL_PATH}")
+    print(f"Number of trees: {model.n_estimators}")
+    print(f"Number of features: {model.n_features_in_}")
+
+    if hasattr(model, "feature_names_in_"):
+        print(f"Model features: {list(model.feature_names_in_)}")
+
+except Exception as e:
+    print(f"Error loading model: {e}")
+    raise
+
+
+if model.n_features_in_ != len(FEATURES):
+    raise ValueError(
+        f"Model expects {model.n_features_in_} features, "
+        f"but the application defines {len(FEATURES)} features."
     )
 
-model = joblib.load(MODEL_PATH)
-
-print("Random Forest model loaded successfully.")
-print("Number of trees:", len(model.estimators_))
-print("Number of features:", model.n_features_in_)
-
-
-# ============================================================
-# Dash application
-# ============================================================
 
 app = Dash(__name__)
 
-app.title = "Retail Campaign Response Predictor"
+app.title = "Retail Campaign Response Prediction"
 
 
-# ============================================================
-# Layout
-# ============================================================
-
-app.layout = html.Div(
-    [
-
-        html.H1(
-            "Retail Campaign Response Predictor",
-            style={"textAlign": "center"}
-        ),
-
-        html.P(
-            "Upload customer data or enter individual customer "
-            "information to predict campaign response.",
-            style={"textAlign": "center", "color": "#555"}
-        ),
-
-        html.Hr(),
-
-        # ====================================================
-        # CSV Upload
-        # ====================================================
-
-        html.Div(
-            [
-
-                html.H2("1. Upload Customer CSV"),
-
-                dcc.Upload(
-                    id="upload-data",
-                    children=html.Div(
-                        [
-                            "Drag and drop your CSV here, or ",
-                            html.A("click to select a file")
-                        ]
-                    ),
-                    style={
-                        "width": "100%",
-                        "height": "80px",
-                        "lineHeight": "80px",
-                        "borderWidth": "1px",
-                        "borderStyle": "dashed",
-                        "borderRadius": "5px",
-                        "textAlign": "center",
-                        "marginBottom": "20px"
-                    },
-                    multiple=False
-                ),
-
-                html.Div(
-                    id="upload-status"
-                ),
-
-                html.Div(
-                    id="uploaded-data-preview"
-                ),
-
-                html.Div(
-                    id="upload-predictions"
-                ),
-
-                html.Br(),
-
-                html.Button(
-                    "Download Predictions",
-                    id="download-button",
-                    style={
-                        "padding": "10px 20px",
-                        "cursor": "pointer"
-                    }
-                ),
-
-                dcc.Download(
-                    id="download-predictions"
-                )
-
-            ],
-            style={
-                "maxWidth": "1000px",
-                "margin": "auto"
-            }
-        ),
-
-        html.Hr(),
-
-        # ====================================================
-        # Individual Prediction
-        # ====================================================
-
-        html.Div(
-            [
-
-                html.H2("2. Individual Customer Prediction"),
-
-                html.Label("Total Sales"),
-
-                dcc.Input(
-                    id="total-sales",
-                    type="number",
-                    value=1000,
-                    min=0,
-                    step=0.01,
-                    style={"width": "100%"}
-                ),
-
-                html.Br(),
-                html.Br(),
-
-                html.Label("Unique Products"),
-
-                dcc.Input(
-                    id="unique-products",
-                    type="number",
-                    value=10,
-                    min=0,
-                    step=1,
-                    style={"width": "100%"}
-                ),
-
-                html.Br(),
-                html.Br(),
-
-                html.Label("Number of Invoices"),
-
-                dcc.Input(
-                    id="number-of-invoices",
-                    type="number",
-                    value=5,
-                    min=0,
-                    step=1,
-                    style={"width": "100%"}
-                ),
-
-                html.Br(),
-                html.Br(),
-
-                html.Label("NPS"),
-
-                dcc.Input(
-                    id="nps",
-                    type="number",
-                    value=8,
-                    min=0,
-                    max=10,
-                    step=1,
-                    style={"width": "100%"}
-                ),
-
-                html.Br(),
-                html.Br(),
-
-                html.Label("Number of Complaints"),
-
-                dcc.Input(
-                    id="n-comp",
-                    type="number",
-                    value=0,
-                    min=0,
-                    step=1,
-                    style={"width": "100%"}
-                ),
-
-                html.Br(),
-                html.Br(),
-
-                html.Label("Number of Communications"),
-
-                dcc.Input(
-                    id="n-communications",
-                    type="number",
-                    value=3,
-                    min=0,
-                    step=1,
-                    style={"width": "100%"}
-                ),
-
-                html.Br(),
-                html.Br(),
-
-                html.Label("Loyalty"),
-
-                dcc.Input(
-                    id="loyalty",
-                    type="number",
-                    value=5,
-                    min=0,
-                    step=1,
-                    style={"width": "100%"}
-                ),
-
-                html.Br(),
-                html.Br(),
-
-                html.Button(
-                    "Predict Campaign Response",
-                    id="predict-button",
-                    n_clicks=0,
-                    style={
-                        "width": "100%",
-                        "padding": "12px",
-                        "fontSize": "16px",
-                        "cursor": "pointer"
-                    }
-                )
-
-            ],
-            style={
-                "maxWidth": "600px",
-                "margin": "auto"
-            }
-        ),
-
-        html.Br(),
-
-        html.Div(
-            id="prediction-output",
-            style={
-                "textAlign": "center",
-                "fontSize": "24px",
-                "fontWeight": "bold"
-            }
-        ),
-
-        dcc.Graph(
-            id="probability-chart"
-        )
-
-    ],
-
-    style={
-        "padding": "40px",
-        "fontFamily": "Arial"
-    }
-)
-
-
-# ============================================================
-# CSV Upload Callback
-# ============================================================
-
-@app.callback(
-    [
-        Output("upload-status", "children"),
-        Output("uploaded-data-preview", "children"),
-        Output("upload-predictions", "children")
-    ],
-    Input("upload-data", "contents"),
-    State("upload-data", "filename")
-)
-def upload_csv(contents, filename):
+def parse_uploaded_csv(contents, filename):
+    """
+    Decode and load an uploaded CSV file.
+    """
 
     if contents is None:
-        return "", "", ""
+        raise ValueError("No file was uploaded.")
 
     try:
-
-        # Decode uploaded CSV
-        content_type, content_string = contents.split(",")
+        content_type, content_string = contents.split(",", 1)
 
         decoded = base64.b64decode(content_string)
 
         df = pd.read_csv(
-            io.StringIO(
-                decoded.decode("utf-8")
-            )
+            io.StringIO(decoded.decode("utf-8-sig"))
         )
 
-        # ----------------------------------------------------
-        # Validate required columns
-        # ----------------------------------------------------
-
-        missing_columns = [
-            column
-            for column in FEATURES
-            if column not in df.columns
-        ]
-
-        if missing_columns:
-
-            return (
-                html.P(
-                    "Upload failed. Missing required columns: "
-                    + ", ".join(missing_columns),
-                    style={"color": "red"}
-                ),
-                "",
-                ""
-            )
-
-        # ----------------------------------------------------
-        # Convert model features to numeric
-        # ----------------------------------------------------
-
-        for column in FEATURES:
-
-            df[column] = pd.to_numeric(
-                df[column],
-                errors="coerce"
-            )
-
-        # ----------------------------------------------------
-        # Check missing values
-        # ----------------------------------------------------
-
-        missing_values = df[FEATURES].isnull().sum()
-
-        rows_with_missing = missing_values.sum()
-
-        if rows_with_missing > 0:
-
-            return (
-                html.P(
-                    "Upload failed. Some required feature values "
-                    "are missing or non-numeric.",
-                    style={"color": "red"}
-                ),
-                "",
-                ""
-            )
-
-        # ----------------------------------------------------
-        # Make predictions
-        # ----------------------------------------------------
-
-        probabilities = model.predict_proba(
-            df[FEATURES]
-        )[:, 1]
-
-        predictions = model.predict(
-            df[FEATURES]
+    except Exception as e:
+        raise ValueError(
+            f"Unable to read uploaded CSV file: {e}"
         )
 
-        results = df.copy()
+    print()
+    print(f"Uploaded file: {filename}")
+    print(f"Rows: {len(df)}")
+    print(f"Columns: {list(df.columns)}")
 
-        results["response_probability"] = probabilities
+    return df
 
-        results["predicted_response"] = predictions
 
-        results["predicted_response_label"] = results[
-            "predicted_response"
-        ].map(
-            {
-                0: "No Response",
-                1: "Response"
+def prepare_prediction_data(df):
+    """
+    Prepare uploaded data for prediction.
+
+    Handles:
+    - customer_lifetime_days -> customer_activity_days
+    - numeric conversion
+    - missing NPS values
+    - feature ordering
+    """
+
+    df = df.copy()
+
+    # Handle the naming difference between the dataset and trained model.
+    if (
+        "customer_lifetime_days" in df.columns
+        and "customer_activity_days" not in df.columns
+    ):
+        df = df.rename(
+            columns={
+                "customer_lifetime_days": "customer_activity_days"
             }
         )
 
-        # ----------------------------------------------------
-        # Preview
-        # ----------------------------------------------------
-
-        preview = html.Div(
-            [
-                html.H4(
-                    f"Uploaded file: {filename}"
-                ),
-
-                html.P(
-                    f"Rows uploaded: {len(df)}"
-                ),
-
-                html.P(
-                    f"Columns detected: {len(df.columns)}"
-                ),
-
-                html.H4("Data Preview"),
-
-                dcc.Markdown(
-                    results.head(10).to_markdown(
-                        index=False
-                    )
-                )
-            ]
+        print(
+            "Renamed customer_lifetime_days "
+            "to customer_activity_days."
         )
 
-        # ----------------------------------------------------
-        # Summary
-        # ----------------------------------------------------
+    missing_columns = [
+        column
+        for column in FEATURES
+        if column not in df.columns
+    ]
+
+    if missing_columns:
+        raise ValueError(
+            f"Missing columns: {', '.join(missing_columns)}"
+        )
+
+    # Convert all model features to numeric values.
+    for column in FEATURES:
+        df[column] = pd.to_numeric(
+            df[column],
+            errors="coerce"
+        )
+
+    # NPS had 3 missing values in the master dataset.
+    # Use the median, matching the preprocessing used for modelling.
+    missing_nps = df["nps"].isna().sum()
+
+    print(f"Missing NPS values: {missing_nps}")
+
+    if missing_nps > 0:
+
+        nps_median = df["nps"].median()
+
+        if pd.isna(nps_median):
+            raise ValueError(
+                "NPS contains missing values and a median "
+                "could not be calculated."
+            )
+
+        df["nps"] = df["nps"].fillna(nps_median)
+
+        print(f"NPS median: {nps_median}")
+        print(
+            f"Imputed {missing_nps} missing NPS values."
+        )
+
+    # Check for any remaining invalid values.
+    problematic_columns = []
+
+    for column in FEATURES:
+
+        if df[column].isna().any():
+            problematic_columns.append(column)
+
+    if problematic_columns:
+        raise ValueError(
+            "Some required feature values are missing "
+            "or non-numeric: "
+            + ", ".join(problematic_columns)
+        )
+
+    # Ensure exact same feature order used during training.
+    X = df[FEATURES].copy()
+
+    print(
+        f"Prediction features: {list(X.columns)}"
+    )
+
+    print(
+        f"Feature count: {X.shape[1]}"
+    )
+
+    print(
+        f"Model feature count: {model.n_features_in_}"
+    )
+
+    if X.shape[1] != model.n_features_in_:
+        raise ValueError(
+            f"Feature mismatch. "
+            f"Application has {X.shape[1]} features, "
+            f"but model expects {model.n_features_in_}."
+        )
+
+    return X
+
+
+def create_probability_chart(probability_0, probability_1):
+    """
+    Create a probability bar chart.
+    """
+
+    fig = go.Figure(
+        data=[
+            go.Bar(
+                x=[
+                    "No Response",
+                    "Response"
+                ],
+                y=[
+                    probability_0,
+                    probability_1
+                ],
+                text=[
+                    f"{probability_0:.1%}",
+                    f"{probability_1:.1%}"
+                ],
+                textposition="auto"
+            )
+        ]
+    )
+
+    fig.update_layout(
+        title="Campaign Response Probability",
+        yaxis_title="Probability",
+        yaxis=dict(
+            range=[0, 1],
+            tickformat=".0%"
+        ),
+        xaxis_title="Prediction"
+    )
+
+    return fig
+
+
+app.layout = html.Div(
+    style={
+        "maxWidth": "1200px",
+        "margin": "0 auto",
+        "padding": "30px",
+        "fontFamily": "Arial"
+    },
+
+    children=[
+
+        html.H1(
+            "Retail Campaign Response Prediction",
+            style={
+                "textAlign": "center"
+            }
+        ),
+
+        html.P(
+            "Predict customer campaign response using "
+            "the trained Random Forest model.",
+            style={
+                "textAlign": "center",
+                "fontSize": "18px"
+            }
+        ),
+
+        html.Hr(),
+
+        html.H2("Model Information"),
+
+        html.Div(
+            [
+                html.P(
+                    f"Model: Random Forest"
+                ),
+                html.P(
+                    f"Number of trees: {model.n_estimators}"
+                ),
+                html.P(
+                    f"Number of features: {model.n_features_in_}"
+                ),
+                html.P(
+                    f"Model file: {MODEL_PATH.name}"
+                )
+            ]
+        ),
+
+        html.Hr(),
+
+        html.H2("Upload Customer CSV"),
+
+        dcc.Upload(
+            id="upload-data",
+
+            children=html.Div(
+                [
+                    "Drag and Drop or ",
+                    html.A("Select a CSV File")
+                ]
+            ),
+
+            style={
+                "width": "100%",
+                "height": "80px",
+                "lineHeight": "80px",
+                "borderWidth": "2px",
+                "borderStyle": "dashed",
+                "borderRadius": "5px",
+                "textAlign": "center",
+                "marginBottom": "20px"
+            },
+
+            multiple=False
+        ),
+
+        html.Div(
+            id="upload-status",
+            style={
+                "marginBottom": "20px",
+                "fontWeight": "bold"
+            }
+        ),
+
+        html.Div(
+            id="upload-results"
+        ),
+
+        html.Hr(),
+
+        html.H2("Individual Customer Prediction"),
+
+        html.Div(
+            style={
+                "display": "grid",
+                "gridTemplateColumns":
+                    "repeat(3, 1fr)",
+                "gap": "15px"
+            },
+
+            children=[
+
+                html.Div(
+                    [
+                        html.Label("Number of Complaints"),
+                        dcc.Input(
+                            id="input-n-comp",
+                            type="number",
+                            value=3,
+                            style={"width": "100%"}
+                        )
+                    ]
+                ),
+
+                html.Div(
+                    [
+                        html.Label("Loyalty"),
+                        dcc.Input(
+                            id="input-loyalty",
+                            type="number",
+                            value=5,
+                            style={"width": "100%"}
+                        )
+                    ]
+                ),
+
+                html.Div(
+                    [
+                        html.Label("NPS"),
+                        dcc.Input(
+                            id="input-nps",
+                            type="number",
+                            value=50,
+                            style={"width": "100%"}
+                        )
+                    ]
+                ),
+
+                html.Div(
+                    [
+                        html.Label(
+                            "Number of Communications"
+                        ),
+                        dcc.Input(
+                            id="input-n-communications",
+                            type="number",
+                            value=4,
+                            style={"width": "100%"}
+                        )
+                    ]
+                ),
+
+                html.Div(
+                    [
+                        html.Label("Total Sales"),
+                        dcc.Input(
+                            id="input-total-sales",
+                            type="number",
+                            value=1000,
+                            style={"width": "100%"}
+                        )
+                    ]
+                ),
+
+                html.Div(
+                    [
+                        html.Label("Unique Products"),
+                        dcc.Input(
+                            id="input-unique-products",
+                            type="number",
+                            value=20,
+                            style={"width": "100%"}
+                        )
+                    ]
+                ),
+
+                html.Div(
+                    [
+                        html.Label(
+                            "Number of Invoices"
+                        ),
+                        dcc.Input(
+                            id="input-number-of-invoices",
+                            type="number",
+                            value=10,
+                            style={"width": "100%"}
+                        )
+                    ]
+                ),
+
+                html.Div(
+                    [
+                        html.Label("Purchase Days"),
+                        dcc.Input(
+                            id="input-purchase-days",
+                            type="number",
+                            value=8,
+                            style={"width": "100%"}
+                        )
+                    ]
+                ),
+
+                html.Div(
+                    [
+                        html.Label(
+                            "Average Invoice Value"
+                        ),
+                        dcc.Input(
+                            id="input-average-invoice-value",
+                            type="number",
+                            value=100,
+                            style={"width": "100%"}
+                        )
+                    ]
+                ),
+
+                html.Div(
+                    [
+                        html.Label(
+                            "Average Quantity Per Invoice"
+                        ),
+                        dcc.Input(
+                            id="input-average-quantity",
+                            type="number",
+                            value=5,
+                            style={"width": "100%"}
+                        )
+                    ]
+                ),
+
+                html.Div(
+                    [
+                        html.Label(
+                            "Average Product Price"
+                        ),
+                        dcc.Input(
+                            id="input-average-product-price",
+                            type="number",
+                            value=20,
+                            style={"width": "100%"}
+                        )
+                    ]
+                ),
+
+                html.Div(
+                    [
+                        html.Label(
+                            "Customer Activity Days"
+                        ),
+                        dcc.Input(
+                            id="input-customer-activity-days",
+                            type="number",
+                            value=365,
+                            style={"width": "100%"}
+                        )
+                    ]
+                )
+            ]
+        ),
+
+        html.Br(),
+
+        html.Button(
+            "Predict Campaign Response",
+            id="predict-button",
+            n_clicks=0,
+            style={
+                "padding": "12px 25px",
+                "fontSize": "16px",
+                "cursor": "pointer"
+            }
+        ),
+
+        html.Div(
+            id="prediction-result",
+            style={
+                "marginTop": "20px"
+            }
+        ),
+
+        dcc.Graph(
+            id="probability-chart",
+            style={
+                "marginTop": "20px"
+            }
+        )
+    ]
+)
+
+
+@app.callback(
+    Output("upload-status", "children"),
+    Output("upload-results", "children"),
+
+    Input("upload-data", "contents"),
+    State("upload-data", "filename"),
+
+    prevent_initial_call=True
+)
+def process_uploaded_file(contents, filename):
+
+    if contents is None:
+        raise PreventUpdate
+
+    try:
+
+        df = parse_uploaded_csv(
+            contents,
+            filename
+        )
+
+        X = prepare_prediction_data(df)
+
+        predictions = model.predict(X)
+
+        probabilities = model.predict_proba(X)
+
+        df["predicted_response"] = predictions
+
+        df["probability_no_response"] = (
+            probabilities[:, 0]
+        )
+
+        df["probability_response"] = (
+            probabilities[:, 1]
+        )
 
         response_count = int(
             (predictions == 1).sum()
@@ -438,20 +572,27 @@ def upload_csv(contents, filename):
             (predictions == 0).sum()
         )
 
-        average_probability = (
-            probabilities.mean() * 100
+        response_rate = (
+            response_count / len(predictions)
+            if len(predictions) > 0
+            else 0
         )
 
-        prediction_summary = html.Div(
+        print("CSV prediction completed successfully.")
+
+        summary = html.Div(
             [
 
-                html.H4(
+                html.H3(
                     "Prediction Results"
                 ),
 
                 html.P(
-                    f"Predicted responses: "
-                    f"{response_count}"
+                    f"Total customers: {len(df)}"
+                ),
+
+                html.P(
+                    f"Predicted responses: {response_count}"
                 ),
 
                 html.P(
@@ -460,207 +601,221 @@ def upload_csv(contents, filename):
                 ),
 
                 html.P(
-                    f"Average response probability: "
-                    f"{average_probability:.2f}%"
+                    f"Predicted response rate: "
+                    f"{response_rate:.2%}"
+                ),
+
+                dash_table.DataTable(
+                    data=df[
+                        [
+                            "CustomerID",
+                            "predicted_response",
+                            "probability_no_response",
+                            "probability_response"
+                        ]
+                    ].head(20).round(4).to_dict(
+                        "records"
+                    ),
+
+                    columns=[
+                        {
+                            "name": "Customer ID",
+                            "id": "CustomerID"
+                        },
+                        {
+                            "name": "Predicted Response",
+                            "id": "predicted_response"
+                        },
+                        {
+                            "name": "Probability No Response",
+                            "id": "probability_no_response"
+                        },
+                        {
+                            "name": "Probability Response",
+                            "id": "probability_response"
+                        }
+                    ],
+
+                    page_size=20,
+
+                    style_table={
+                        "overflowX": "auto"
+                    },
+
+                    style_cell={
+                        "textAlign": "left",
+                        "padding": "8px"
+                    }
                 )
-
-            ],
-            style={
-                "marginTop": "20px",
-                "padding": "15px",
-                "border": "1px solid #ddd"
-            }
+            ]
         )
 
-        # Store results in hidden component
-        prediction_table = html.Div(
-            id="prediction-results-data",
-            children=""
+        status = html.Div(
+            [
+                html.Span(
+                    "Upload successful: "
+                    f"{filename}"
+                )
+            ]
         )
 
-        # Save results temporarily in app memory
-        app.server.config[
-            "LATEST_RESULTS"
-        ] = results
-
-        return (
-            html.P(
-                f"Successfully uploaded {filename}.",
-                style={"color": "green"}
-            ),
-            preview,
-            html.Div(
-                [
-                    prediction_summary,
-                    prediction_table
-                ]
-            )
-        )
+        return status, summary
 
     except Exception as e:
 
+        print(f"Upload failed: {e}")
+
         return (
-            html.P(
-                f"Error processing CSV: {str(e)}",
-                style={"color": "red"}
+            html.Div(
+                [
+                    "Upload failed: ",
+                    str(e)
+                ],
+                style={
+                    "color": "red"
+                }
             ),
-            "",
-            ""
+            html.Div()
         )
 
 
-# ============================================================
-# Download Predictions
-# ============================================================
-
 @app.callback(
-    Output("download-predictions", "data"),
-    Input("download-button", "n_clicks"),
-    prevent_initial_call=True
-)
-def download_results(n_clicks):
-
-    results = app.server.config.get(
-        "LATEST_RESULTS"
-    )
-
-    if results is None:
-        return None
-
-    return dcc.send_data_frame(
-        results.to_csv,
-        "campaign_predictions.csv",
-        index=False
-    )
-
-
-# ============================================================
-# Individual Customer Prediction
-# ============================================================
-
-@app.callback(
-    [
-        Output("prediction-output", "children"),
-        Output("probability-chart", "figure")
-    ],
+    Output("prediction-result", "children"),
+    Output("probability-chart", "figure"),
 
     Input("predict-button", "n_clicks"),
 
-    [
-        State("total-sales", "value"),
-        State("unique-products", "value"),
-        State("number-of-invoices", "value"),
-        State("nps", "value"),
-        State("n-comp", "value"),
-        State("n-communications", "value"),
-        State("loyalty", "value")
-    ]
+    State("input-n-comp", "value"),
+    State("input-loyalty", "value"),
+    State("input-nps", "value"),
+    State("input-n-communications", "value"),
+    State("input-total-sales", "value"),
+    State("input-unique-products", "value"),
+    State("input-number-of-invoices", "value"),
+    State("input-purchase-days", "value"),
+    State("input-average-invoice-value", "value"),
+    State("input-average-quantity", "value"),
+    State("input-average-product-price", "value"),
+    State("input-customer-activity-days", "value")
 )
-def predict_response(
+def predict_individual_customer(
     n_clicks,
+    n_comp,
+    loyalty,
+    nps,
+    n_communications,
     total_sales,
     unique_products,
     number_of_invoices,
-    nps,
-    n_comp,
-    n_communications,
-    loyalty
+    purchase_days,
+    average_invoice_value,
+    average_quantity_per_invoice,
+    average_product_price,
+    customer_activity_days
 ):
 
-    empty_figure = go.Figure()
-
     if not n_clicks:
-
-        return (
-            "Enter customer information and click Predict.",
-            empty_figure
-        )
+        return "", go.Figure()
 
     values = [
+        n_comp,
+        loyalty,
+        nps,
+        n_communications,
         total_sales,
         unique_products,
         number_of_invoices,
-        nps,
-        n_comp,
-        n_communications,
-        loyalty
+        purchase_days,
+        average_invoice_value,
+        average_quantity_per_invoice,
+        average_product_price,
+        customer_activity_days
     ]
 
     if any(value is None for value in values):
 
         return (
-            "Please complete all fields.",
-            empty_figure
+            html.Div(
+                "Please provide values for all fields.",
+                style={
+                    "color": "red"
+                }
+            ),
+            go.Figure()
         )
 
-    input_data = pd.DataFrame(
-        [{
-            "total_sales": total_sales,
-            "unique_products": unique_products,
-            "number_of_invoices": number_of_invoices,
-            "nps": nps,
-            "n_comp": n_comp,
-            "n_communications": n_communications,
-            "loyalty": loyalty
-        }],
-        columns=FEATURES
-    )
+    try:
 
-    probability = model.predict_proba(
-        input_data
-    )[0, 1]
-
-    prediction = model.predict(
-        input_data
-    )[0]
-
-    probability_percent = probability * 100
-
-    if prediction == 1:
-
-        result = (
-            f"Predicted Response: YES — "
-            f"{probability_percent:.2f}% probability"
+        X = pd.DataFrame(
+            [values],
+            columns=FEATURES
         )
 
-    else:
+        print()
+        print(
+            "Individual prediction features:"
+        )
+        print(list(X.columns))
 
-        result = (
-            f"Predicted Response: NO — "
-            f"{probability_percent:.2f}% probability"
+        prediction = model.predict(X)[0]
+
+        probabilities = model.predict_proba(X)[0]
+
+        probability_no_response = probabilities[0]
+        probability_response = probabilities[1]
+
+        if prediction == 1:
+            result_text = "Predicted Response"
+        else:
+            result_text = "Predicted No Response"
+
+        result = html.Div(
+            [
+
+                html.H3(
+                    result_text
+                ),
+
+                html.P(
+                    f"Response probability: "
+                    f"{probability_response:.2%}"
+                ),
+
+                html.P(
+                    f"No-response probability: "
+                    f"{probability_no_response:.2%}"
+                )
+            ]
         )
 
-    figure = go.Figure(
-        go.Bar(
-            x=[
-                "No Response",
-                "Response"
-            ],
-            y=[
-                (1 - probability) * 100,
-                probability * 100
-            ],
-            text=[
-                f"{(1 - probability) * 100:.2f}%",
-                f"{probability * 100:.2f}%"
-            ],
-            textposition="auto"
+        figure = create_probability_chart(
+            probability_no_response,
+            probability_response
         )
-    )
 
-    figure.update_layout(
-        title="Campaign Response Probability",
-        yaxis_title="Probability (%)",
-        xaxis_title="Outcome",
-        yaxis={"range": [0, 100]}
-    )
+        return result, figure
 
-    return result, figure
+    except Exception as e:
 
+        print(
+            f"Individual prediction failed: {e}"
+        )
 
-# ============================================================
-# Run application
-# ============================================================
+        return (
+            html.Div(
+                f"Prediction failed: {e}",
+                style={
+                    "color": "red"
+                }
+            ),
+            go.Figure()
+        )
+
 
 if __name__ == "__main__":
-    app.run(debug=True)
+
+    app.run(
+        debug=True,
+        host="127.0.0.1",
+        port=8050
+    )

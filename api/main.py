@@ -6,18 +6,9 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
 
-# --------------------------------------------------
-# Paths
-# --------------------------------------------------
-
 BASE_DIR = Path(__file__).resolve().parent.parent
-
 MODEL_PATH = BASE_DIR / "models" / "random_forest_model.pkl"
 
-
-# --------------------------------------------------
-# Load trained model
-# --------------------------------------------------
 
 try:
     model = joblib.load(MODEL_PATH)
@@ -28,24 +19,21 @@ else:
     MODEL_ERROR = None
 
 
-# --------------------------------------------------
-# Model features
-# --------------------------------------------------
-
 FEATURES = [
+    "n_comp",
+    "loyalty",
+    "nps",
+    "n_communications",
     "total_sales",
     "unique_products",
     "number_of_invoices",
-    "nps",
-    "n_comp",
-    "n_communications",
-    "loyalty"
+    "purchase_days",
+    "average_invoice_value",
+    "average_quantity_per_invoice",
+    "average_product_price",
+    "customer_activity_days"
 ]
 
-
-# --------------------------------------------------
-# FastAPI application
-# --------------------------------------------------
 
 app = FastAPI(
     title="AI Retail Campaign Response Prediction API",
@@ -58,11 +46,31 @@ app = FastAPI(
 )
 
 
-# --------------------------------------------------
-# Input validation
-# --------------------------------------------------
-
 class CustomerData(BaseModel):
+    n_comp: float = Field(
+        ...,
+        ge=0,
+        description="Number of campaign components"
+    )
+
+    loyalty: float = Field(
+        ...,
+        ge=0,
+        description="Customer loyalty score"
+    )
+
+    nps: float = Field(
+        ...,
+        ge=-100,
+        le=100,
+        description="Net Promoter Score"
+    )
+
+    n_communications: float = Field(
+        ...,
+        ge=0,
+        description="Number of customer communications"
+    )
 
     total_sales: float = Field(
         ...,
@@ -82,39 +90,39 @@ class CustomerData(BaseModel):
         description="Number of customer invoices"
     )
 
-    nps: float = Field(
-        ...,
-        ge=-100,
-        le=100,
-        description="Net Promoter Score"
-    )
-
-    n_comp: float = Field(
+    purchase_days: float = Field(
         ...,
         ge=0,
-        description="Number of campaign components"
+        description="Number of days on which purchases were made"
     )
 
-    n_communications: float = Field(
+    average_invoice_value: float = Field(
         ...,
         ge=0,
-        description="Number of customer communications"
+        description="Average value per customer invoice"
     )
 
-    loyalty: float = Field(
+    average_quantity_per_invoice: float = Field(
         ...,
         ge=0,
-        description="Customer loyalty score"
+        description="Average quantity purchased per invoice"
     )
 
+    average_product_price: float = Field(
+        ...,
+        ge=0,
+        description="Average product price"
+    )
 
-# --------------------------------------------------
-# Root endpoint
-# --------------------------------------------------
+    customer_activity_days: float = Field(
+        ...,
+        ge=0,
+        description="Number of days of customer activity"
+    )
+
 
 @app.get("/")
 def root():
-
     return {
         "message": "AI Retail Campaign Response Prediction API",
         "version": "1.0.0",
@@ -130,13 +138,8 @@ def root():
     }
 
 
-# --------------------------------------------------
-# Health check
-# --------------------------------------------------
-
 @app.get("/health")
 def health_check():
-
     if model is None:
         return {
             "status": "unhealthy",
@@ -152,13 +155,8 @@ def health_check():
     }
 
 
-# --------------------------------------------------
-# Model information
-# --------------------------------------------------
-
 @app.get("/model-info")
 def model_info():
-
     if model is None:
         raise HTTPException(
             status_code=500,
@@ -186,13 +184,8 @@ def model_info():
     }
 
 
-# --------------------------------------------------
-# Prediction endpoint
-# --------------------------------------------------
-
 @app.post("/predict")
 def predict(customer: CustomerData):
-
     if model is None:
         raise HTTPException(
             status_code=500,
@@ -200,29 +193,26 @@ def predict(customer: CustomerData):
         )
 
     try:
-
-        # Create DataFrame using the exact
-        # feature names and order used by the model
-
         features = pd.DataFrame(
             [[
+                customer.n_comp,
+                customer.loyalty,
+                customer.nps,
+                customer.n_communications,
                 customer.total_sales,
                 customer.unique_products,
                 customer.number_of_invoices,
-                customer.nps,
-                customer.n_comp,
-                customer.n_communications,
-                customer.loyalty
+                customer.purchase_days,
+                customer.average_invoice_value,
+                customer.average_quantity_per_invoice,
+                customer.average_product_price,
+                customer.customer_activity_days
             ]],
             columns=FEATURES
         )
 
-        # Generate prediction
-
         prediction = model.predict(features)[0]
         prediction = int(prediction)
-
-        # Generate probabilities
 
         probabilities = model.predict_proba(features)[0]
 
@@ -232,15 +222,8 @@ def predict(customer: CustomerData):
             in zip(model.classes_, probabilities)
         }
 
-        response_probability = class_probabilities.get(
-            1,
-            0.0
-        )
-
-        non_response_probability = class_probabilities.get(
-            0,
-            0.0
-        )
+        response_probability = class_probabilities.get(1, 0.0)
+        non_response_probability = class_probabilities.get(0, 0.0)
 
         prediction_label = (
             "Response"
@@ -262,7 +245,6 @@ def predict(customer: CustomerData):
         }
 
     except Exception as e:
-
         raise HTTPException(
             status_code=500,
             detail=f"Prediction failed: {str(e)}"
