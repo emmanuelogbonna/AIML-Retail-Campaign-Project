@@ -3,7 +3,9 @@ uvicorn
 pydantic
 pandas
 numpy
-joblib
+joblib==1.4.2
 scikit-learn==1.6.1
+xgboost
+shap
 dash
 plotly
