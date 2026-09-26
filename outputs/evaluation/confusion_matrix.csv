@@ -1,3 +1,4 @@
-,Predicted_No_Response,Predicted_Response
-Actual_No_Response,400,56
-Actual_Response,152,159
+Model,True_Negative,False_Positive,False_Negative,True_Positive
+Random Forest,385,71,211,100
+XGBoost,408,48,204,107
+Logistic Regression,379,77,196,115

@@ -1,6 +1,4 @@
-metric,value
-accuracy,0.7288135593220338
-precision,0.7395348837209302
-recall,0.5112540192926045
-f1_score,0.6045627376425855
-roc_auc,0.7840264850228466
+Model,Accuracy,Precision,Recall,F1 Score,ROC AUC
+Random Forest,0.6323,0.5848,0.3215,0.4149,0.6603
+XGBoost,0.6714,0.6903,0.3441,0.4592,0.6678
+Logistic Regression,0.6441,0.599,0.3698,0.4573,0.6343
